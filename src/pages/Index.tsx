@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Icon from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 
 const mockLots = [
   { id: 1, name: 'Винтовка AK-74', currentPrice: 15000, marketPrice: 25000, profit: 10000, status: 'monitoring' },
@@ -27,9 +28,45 @@ const mockActiveSales = [
   { id: 3, name: 'Противогаз', price: 4500, listed: '5ч назад', views: 12, status: 'active' },
 ];
 
+const API_URL = 'https://functions.poehali.dev/ec5230be-1140-4daa-bc28-61a5fc954f71';
+
 export default function Index() {
   const [botActive, setBotActive] = useState(false);
   const [autoSell, setAutoSell] = useState(true);
+  const [lots, setLots] = useState(mockLots);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const fetchLots = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}?region=RU&limit=20`);
+      const data = await response.json();
+      
+      if (data.success && data.lots.length > 0) {
+        setLots(data.lots);
+        toast({
+          title: 'Данные обновлены',
+          description: `Найдено ${data.total} выгодных лотов`,
+        });
+      } else {
+        setLots(mockLots);
+      }
+    } catch (error) {
+      console.error('Error fetching lots:', error);
+      setLots(mockLots);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (botActive) {
+      fetchLots();
+      const interval = setInterval(fetchLots, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [botActive]);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -124,9 +161,13 @@ export default function Index() {
                     </CardTitle>
                     <CardDescription className="mt-1">Автоматический поиск прибыльных предложений</CardDescription>
                   </div>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <Icon name="Settings" size={16} className="mr-2" />
-                    Настройки фильтров
+                  <Button 
+                    className="bg-primary hover:bg-primary/90"
+                    onClick={fetchLots}
+                    disabled={loading}
+                  >
+                    <Icon name={loading ? "Loader2" : "RefreshCw"} size={16} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    {loading ? 'Обновление...' : 'Обновить'}
                   </Button>
                 </div>
               </CardHeader>
@@ -142,7 +183,7 @@ export default function Index() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockLots.map((lot) => (
+                    {lots.map((lot) => (
                       <TableRow key={lot.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium">{lot.name}</TableCell>
                         <TableCell>₽{lot.currentPrice.toLocaleString()}</TableCell>
