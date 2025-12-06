@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "name": "Get auction lots with default parameters",
+      "method": "GET",
+      "path": "/?region=ru&limit=5",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "lots": "array",
+        "total": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle OPTIONS preflight request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
