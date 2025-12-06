@@ -29,11 +29,13 @@ const mockActiveSales = [
 ];
 
 const API_URL = 'https://functions.poehali.dev/ec5230be-1140-4daa-bc28-61a5fc954f71';
+const PURCHASE_API_URL = 'https://functions.poehali.dev/604a8d23-4ef6-4459-a852-ef65af28940c';
 
 export default function Index() {
   const [botActive, setBotActive] = useState(false);
   const [autoSell, setAutoSell] = useState(true);
   const [lots, setLots] = useState(mockLots);
+  const [purchases, setPurchases] = useState(mockPurchases);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -60,10 +62,59 @@ export default function Index() {
     }
   };
 
+  const fetchPurchases = async () => {
+    try {
+      const response = await fetch(PURCHASE_API_URL);
+      const data = await response.json();
+      
+      if (data.success && data.purchases.length > 0) {
+        setPurchases(data.purchases);
+      }
+    } catch (error) {
+      console.error('Error fetching purchases:', error);
+    }
+  };
+
+  const buyLot = async (lot: any) => {
+    try {
+      const response = await fetch(PURCHASE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: lot.id,
+          itemName: lot.name,
+          buyPrice: lot.currentPrice,
+          region: 'RU'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: 'Лот куплен!',
+          description: `${lot.name} за ₽${lot.currentPrice.toLocaleString()}`,
+        });
+        fetchPurchases();
+        fetchLots();
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка покупки',
+        description: 'Не удалось купить лот',
+        variant: 'destructive'
+      });
+    }
+  };
+
   useEffect(() => {
     if (botActive) {
       fetchLots();
-      const interval = setInterval(fetchLots, 30000);
+      fetchPurchases();
+      const interval = setInterval(() => {
+        fetchLots();
+        fetchPurchases();
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [botActive]);
@@ -192,7 +243,11 @@ export default function Index() {
                           <span className="text-success font-semibold">+₽{lot.profit.toLocaleString()}</span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" className="bg-primary hover:bg-primary/90">
+                          <Button 
+                            size="sm" 
+                            className="bg-primary hover:bg-primary/90"
+                            onClick={() => buyLot(lot)}
+                          >
                             <Icon name="ShoppingCart" size={14} className="mr-1" />
                             Купить
                           </Button>
@@ -227,7 +282,7 @@ export default function Index() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockPurchases.map((purchase) => (
+                    {purchases.map((purchase) => (
                       <TableRow key={purchase.id} className="border-border hover:bg-muted/50">
                         <TableCell className="font-medium">{purchase.name}</TableCell>
                         <TableCell>₽{purchase.buyPrice.toLocaleString()}</TableCell>
